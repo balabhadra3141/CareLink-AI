@@ -127,6 +127,12 @@ export default function VolunteerDashboard() {
         mobileNumber: updateMobile,
         location: updateLocation
       });
+      setUserProfile(prev => ({
+        ...prev,
+        name: updateName,
+        mobileNumber: updateMobile,
+        location: updateLocation
+      }));
       alert("Profile updated successfully!");
     } catch(e) {
       console.error("Failed to update profile", e);

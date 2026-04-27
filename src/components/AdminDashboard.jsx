@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { AlertTriangle, MapPin, Clock, BrainCircuit, Users, Check, X, Loader2, Trophy, CheckCircle2, Globe, Settings, Save, ShieldAlert } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { currentUser, userProfile, updateUserEmail, updateUserPassword } = useAuth();
+  const { currentUser, userProfile, updateUserEmail, updateUserPassword, setUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('tasks'); // 'tasks' | 'volunteers' | 'leaderboard' | 'global_feed' | 'settings'
   const [resolvingId, setResolvingId] = useState(null);
   
@@ -25,6 +25,7 @@ export default function AdminDashboard() {
   const [updateName, setUpdateName] = useState('');
   const [updateMobile, setUpdateMobile] = useState('');
   const [updateLocation, setUpdateLocation] = useState('');
+  const [updateInterests, setUpdateInterests] = useState('');
   const [updatingProfile, setUpdatingProfile] = useState(false);
 
   // Settings State - Security
@@ -38,6 +39,7 @@ export default function AdminDashboard() {
       setUpdateName(userProfile.name || '');
       setUpdateMobile(userProfile.mobileNumber || '');
       setUpdateLocation(userProfile.coverageLocality || userProfile.location || '');
+      setUpdateInterests(userProfile.interests ? userProfile.interests.join(', ') : '');
       setSecNewEmail(userProfile.email || '');
     }
   }, [userProfile]);
@@ -186,12 +188,22 @@ export default function AdminDashboard() {
     e.preventDefault();
     setUpdatingProfile(true);
     try {
+      const parsedInterests = updateInterests.split(',').map(i => i.trim()).filter(i => i);
       await updateDoc(doc(db, 'users', currentUser.uid), {
         name: updateName,
         mobileNumber: updateMobile,
         coverageLocality: updateLocation,
-        location: updateLocation
+        location: updateLocation,
+        interests: parsedInterests
       });
+      setUserProfile(prev => ({
+        ...prev,
+        name: updateName,
+        mobileNumber: updateMobile,
+        coverageLocality: updateLocation,
+        location: updateLocation,
+        interests: parsedInterests
+      }));
       alert("Profile updated successfully!");
     } catch(e) {
       console.error("Failed to update profile", e);
@@ -575,6 +587,10 @@ export default function AdminDashboard() {
               <div className="form-group">
                 <label className="form-label">Coverage Locality</label>
                 <input type="text" className="form-input" required value={updateLocation} onChange={(e) => setUpdateLocation(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Focus Areas (Comma separated)</label>
+                <input type="text" className="form-input" required value={updateInterests} onChange={(e) => setUpdateInterests(e.target.value)} placeholder="Flood, Medical, Food..." />
               </div>
 
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={updatingProfile}>

@@ -9,7 +9,12 @@ function App() {
   const { currentUser, userRole } = useAuth();
 
   if (!currentUser) {
-    return <Auth />;
+    return (
+      <Routes>
+        <Route path="/" element={<Auth />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
   }
 
   // Prevent infinite redirect loop if userRole failed to load

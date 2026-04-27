@@ -173,6 +173,7 @@ export function AuthProvider({ children }) {
     currentUser,
     userRole,
     userProfile,
+    setUserProfile,
     login,
     signup,
     logout,
