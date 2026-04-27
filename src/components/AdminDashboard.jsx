@@ -544,7 +544,7 @@ export default function AdminDashboard() {
                       <strong>🏢 Volunteer NGO:</strong> {report.reportedByNgoName || 'Open Volunteer'}
                     </div>
                     <div>
-                      <strong>🎯 Assigned To:</strong> {report.assignedNgoName || 'Unknown NGO'} <br/>
+                      <strong>🎯 Assigned To:</strong> {report.assignedNgos?.map(n=>n.name).join(', ') || report.assignedNgoName || 'Unknown NGO'} <br/>
                       <strong>⚡ Priority:</strong> {report.aiAnalysis?.severity || 'Medium'}
                     </div>
                   </div>

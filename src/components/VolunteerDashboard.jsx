@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Send, MapPin, AlertCircle, Loader2, Building2, UserPlus, Clock, History, Award, CheckCircle2, Globe, Settings, LogOut, Save, ShieldAlert } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where, increment } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, query, where, increment } from 'firebase/firestore';
 import { GoogleGenAI } from '@google/genai';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 export default function VolunteerDashboard() {
-  const { currentUser, userProfile, updateUserEmail, updateUserPassword } = useAuth();
+  const { currentUser, userProfile, updateUserEmail, updateUserPassword, setUserProfile } = useAuth();
   
   const [activeTab, setActiveTab] = useState('report'); // 'report' | 'history' | 'badges' | 'global_feed' | 'settings'
   
@@ -181,8 +181,7 @@ export default function VolunteerDashboard() {
         approvedNgos: currentApproved
       });
       
-      // Reload window to update AuthContext state cleanly
-      window.location.reload();
+      setUserProfile(prev => ({ ...prev, pendingNgos: currentPending, approvedNgos: currentApproved }));
     } catch(e) {
       console.error(e);
       alert("Failed to update NGO membership.");
@@ -215,10 +214,9 @@ export default function VolunteerDashboard() {
 
     const assigned = [topNgo];
 
-    // 4. Emergency Assignment logic: If top NGO has < 5 volunteers, pull in backups
+    // 4. Emergency Assignment logic: If top NGO has < 5 volunteers, pull in backups (max 2 total)
     if (topNgo.availableVolunteers < 5) {
        if (scored[1]) assigned.push(scored[1]);
-       if (scored[2] && assigned.length < 3) assigned.push(scored[2]);
     }
 
     return assigned;
@@ -331,6 +329,32 @@ export default function VolunteerDashboard() {
     }
 
     setLoading(false);
+  };
+
+  const handleDeleteReport = async (reportId, assignedNgosIds, status) => {
+    if (!window.confirm("Are you sure you want to delete this wrongly reported issue?")) return;
+    
+    try {
+      await deleteDoc(doc(db, 'reports', reportId));
+      
+      // Decrement assigned tasks for NGOs if it was not resolved
+      if (status !== 'resolved' && assignedNgosIds) {
+        for (const ngoId of assignedNgosIds) {
+          if (ngoId !== 'mock-1') {
+            try { await updateDoc(doc(db, 'users', ngoId), { assignedTasksCount: increment(-1) }); } catch(e) {}
+          }
+        }
+      }
+
+      setMyHistory(prev => prev.filter(r => r.id !== reportId));
+      
+      // Also remove from global feed if it's currently loaded
+      setGlobalFeed(prev => prev.filter(r => r.id !== reportId));
+      
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete report.");
+    }
   };
 
   if (!userProfile) {
@@ -472,9 +496,12 @@ export default function VolunteerDashboard() {
                     </div>
                   </div>
                   <div>
-                    <span className={`badge ${report.status === 'resolved' ? 'badge-low' : 'badge-medium'}`}>
+                    <span className={`badge ${report.status === 'resolved' ? 'badge-low' : 'badge-medium'}`} style={{ marginBottom: '0.5rem', display: 'block', textAlign: 'center' }}>
                       {report.status === 'resolved' ? 'Resolved' : 'Assigned'}
                     </span>
+                    <button className="btn" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: 'var(--status-critical-bg)', color: 'var(--status-critical)', border: '1px solid rgba(239, 68, 68, 0.3)', width: '100%' }} onClick={() => handleDeleteReport(report.id, report.aiAnalysis?.assignedNgosIds, report.status)}>
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -573,7 +600,7 @@ export default function VolunteerDashboard() {
                       <strong>🏢 Volunteer NGO:</strong> {report.reportedByNgoName || 'Open Volunteer'}
                     </div>
                     <div>
-                      <strong>🎯 Assigned To:</strong> {report.assignedNgos?.map(n=>n.name).join(', ') || 'Unknown NGO'} <br/>
+                      <strong>🎯 Assigned To:</strong> {report.assignedNgos?.map(n=>n.name).join(', ') || report.assignedNgoName || 'Unknown NGO'} <br/>
                       <strong>⚡ Priority:</strong> {report.aiAnalysis?.severity || 'Medium'}
                     </div>
                   </div>
